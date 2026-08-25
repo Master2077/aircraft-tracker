@@ -13,7 +13,7 @@ FILE_PATH = Path(__file__).resolve().parent.parent / "data" / "info.json"
 class SaveDataPlanesABC(ABC):
     """
     Абстрактный класс для сохранения, загрузки
-    и удаления данных о самолётах.
+    и удаления данных о самолетах.
     """
 
     @abstractmethod
