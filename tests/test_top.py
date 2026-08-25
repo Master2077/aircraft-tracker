@@ -2,178 +2,164 @@ import json
 import pytest
 
 from src.top import TopPlanes
-import src.top as top_module
+from src.plane import Plane
 
 
 @pytest.fixture
-def info_file(tmp_path, monkeypatch):
-    file_path = tmp_path / "info.json"
-
-    # Подменяем FILE_PATH внутри src.top
-    monkeypatch.setattr(top_module, "FILE_PATH", file_path)
-
-    return file_path
+def sample_planes():
+     return [
+     Plane(
+     country="Russia",
+     callsign="PlaneA",
+     velocity=800,
+     vertical_velocity=0.0,
+     geo_altitude=10000,
+     baro_altitude=9900,
+     longitude=37.6,
+     latitude=55.7,
+     ),
+     Plane(
+     country="Germany",
+     callsign="PlaneB",
+     velocity=1200,
+     vertical_velocity=-1.5,
+     geo_altitude=15000,
+     baro_altitude=14800,
+     longitude=13.4,
+     latitude=52.5,
+     ),
+     Plane(
+     country="France",
+     callsign="PlaneC",
+     velocity=600,
+     vertical_velocity=2.0,
+     geo_altitude=20000,
+     baro_altitude=19800,
+     longitude=2.3,
+     latitude=48.8,
+     ),
+     Plane(
+     country="Spain",
+     callsign="PlaneD",
+     velocity=None, # нет скорости
+     vertical_velocity=0.0,
+     geo_altitude=5000,
+     baro_altitude=4900,
+     longitude=-3.7,
+     latitude=40.4,
+     ),
+     Plane(
+     country="Italy",
+     callsign="PlaneE",
+     velocity=900,
+     vertical_velocity=0.5,
+     geo_altitude=None, # нет высоты
+     baro_altitude=None,
+     longitude=12.5,
+     latitude=41.9,
+     ),
+     ]
 
 
 @pytest.fixture
-def planes_data():
-    return [
-        {
-            "Название": "Самолёт A",
-            "Горизонтальная скорость": 800,
-            "Геометрическая высота": 10_000,
-        },
-        {
-            "Название": "Самолёт B",
-            "Горизонтальная скорость": 1_200,
-            "Геометрическая высота": 15_000,
-        },
-        {
-            "Название": "Самолёт C",
-            "Горизонтальная скорость": 600,
-            "Геометрическая высота": 20_000,
-        },
-        {
-            "Название": "Самолёт D",
-            "Горизонтальная скорость": None,
-            "Геометрическая высота": 5_000,
-        },
-    ]
+def top_service():
+ return TopPlanes()
 
 
-def save_json(file_path, data):
-    file_path.write_text(
-        json.dumps(data, ensure_ascii=False),
-        encoding="utf-8",
-    )
+def test_top_velocity(top_service, sample_planes):
+ result = top_service.top_velocity(sample_planes, 3)
+ data = json.loads(result)
+
+ assert len(data) == 3
+ assert [plane["Позывной рейса"] for plane in data] == [
+ "PlaneB", # 1200
+ "PlaneE", # 900
+ "PlaneA", # 800
+ ]
 
 
-def test_load_data(info_file, planes_data):
-    save_json(info_file, planes_data)
+def test_top_altitude(top_service, sample_planes):
+ result = top_service.top_altitude(sample_planes, 3)
+ data = json.loads(result)
 
-    result = TopPlanes()._load_data()
-
-    assert result == planes_data
-
-
-def test_load_data_empty_file(info_file):
-    info_file.touch()
-
-    with pytest.raises(TypeError):
-        TopPlanes()._load_data()
-
-def test_load_data_file_does_not_exist(info_file):
-    with pytest.raises(TypeError):
-        TopPlanes()._load_data()
+ assert len(data) == 3
+ assert [plane["Позывной рейса"] for plane in data] == [
+ "PlaneC", # 20000
+ "PlaneB", # 15000
+ "PlaneA", # 10000
+ ]
 
 
-def test_load_data_invalid_json(info_file):
-    info_file.write_text("{invalid json", encoding="utf-8")
+def test_top_velocity_excludes_none_values(top_service, sample_planes):
+ result = top_service.top_velocity(sample_planes, 10)
+ data = json.loads(result)
 
-    result = TopPlanes()._load_data()
-
-    assert result == []
-
-
-def test_load_data_json_is_not_list(info_file):
-    save_json(info_file, {"airplane": "Самолёт"})
-
-    result = TopPlanes()._load_data()
-
-    assert result == []
+ callsigns = [plane["Позывной рейса"] for plane in data]
+ assert "PlaneD" not in callsigns # velocity = None
+ assert len(data) == 4 # все, кроме PlaneD
 
 
-def test_top_velocity(info_file, planes_data):
-    save_json(info_file, planes_data)
+def test_top_altitude_excludes_none_values(top_service, sample_planes):
+ result = top_service.top_altitude(sample_planes, 10)
+ data = json.loads(result)
 
-    result = TopPlanes().top_velocity(3)
-    result = json.loads(result)
-
-    assert [plane["Название"] for plane in result] == [
-        "Самолёт B",
-        "Самолёт A",
-        "Самолёт C",
-    ]
+ callsigns = [plane["Позывной рейса"] for plane in data]
+ assert "PlaneE" not in callsigns # geo_altitude = None
+ assert len(data) == 4
 
 
-def test_top_altitude(info_file, planes_data):
-    save_json(info_file, planes_data)
+def test_top_velocity_returns_n_planes(top_service, sample_planes):
+ result = top_service.top_velocity(sample_planes, 2)
+ data = json.loads(result)
 
-    result = TopPlanes().top_altitude(3)
-    result = json.loads(result)
-
-    assert [plane["Название"] for plane in result] == [
-        "Самолёт C",
-        "Самолёт B",
-        "Самолёт A",
-    ]
+ assert len(data) == 2
+ assert data[0]["Позывной рейса"] == "PlaneB"
 
 
-def test_top_velocity_excludes_empty_values(info_file, planes_data):
-    save_json(info_file, planes_data)
+def test_top_altitude_returns_n_planes(top_service, sample_planes):
+ result = top_service.top_altitude(sample_planes, 2)
+ data = json.loads(result)
 
-    result = TopPlanes().top_velocity(10)
-    result = json.loads(result)
-
-    names = [plane["Название"] for plane in result]
-
-    assert "Самолёт D" not in names
-    assert len(result) == 3
+ assert len(data) == 2
+ assert data[0]["Позывной рейса"] == "PlaneC"
 
 
-def test_top_velocity_returns_n_planes(info_file, planes_data):
-    save_json(info_file, planes_data)
-
-    result = TopPlanes().top_velocity(2)
-    result = json.loads(result)
-
-    assert len(result) == 2
-    assert result[0]["Название"] == "Самолёт B"
+def test_top_velocity_zero(top_service, sample_planes):
+ result = top_service.top_velocity(sample_planes, 0)
+ assert json.loads(result) == []
 
 
-def test_top_altitude_returns_n_planes(info_file, planes_data):
-    save_json(info_file, planes_data)
-
-    result = TopPlanes().top_altitude(2)
-    result = json.loads(result)
-
-    assert len(result) == 2
-    assert result[0]["Название"] == "Самолёт C"
+def test_top_altitude_zero(top_service, sample_planes):
+ result = top_service.top_altitude(sample_planes, 0)
+ assert json.loads(result) == []
 
 
-def test_top_velocity_zero(info_file, planes_data):
-    save_json(info_file, planes_data)
-
-    result = TopPlanes().top_velocity(0)
-
-    assert json.loads(result) == []
+def test_top_velocity_negative_number(top_service, sample_planes):
+ with pytest.raises(ValueError, match="Количество самолетов не может быть отрицательным"):
+    top_service.top_velocity(sample_planes, -1)
 
 
-def test_top_altitude_zero(info_file, planes_data):
-    save_json(info_file, planes_data)
-
-    result = TopPlanes().top_altitude(0)
-
-    assert json.loads(result) == []
+def test_top_altitude_negative_number(top_service, sample_planes):
+ with pytest.raises(ValueError, match="Количество самолетов не может быть отрицательным"):
+    top_service.top_altitude(sample_planes, -1)
 
 
-def test_top_velocity_negative_number(info_file):
-    save_json(info_file, [])
-
-    with pytest.raises(
-        ValueError,
-        match="Количество самолётов не может быть отрицательным",
-    ):
-        TopPlanes().top_velocity(-1)
+def test_top_velocity_not_int(top_service, sample_planes):
+ with pytest.raises(TypeError, match="Количество самолетов должно быть целым числом"):
+    top_service.top_velocity(sample_planes, "3")
 
 
-def test_top_altitude_negative_number(info_file):
-    save_json(info_file, [])
+def test_top_altitude_not_int(top_service, sample_planes):
+ with pytest.raises(TypeError, match="Количество самолетов должно быть целым числом"):
+    top_service.top_altitude(sample_planes, 2.5)
 
-    with pytest.raises(
-        ValueError,
-        match="Количество самолётов не может быть отрицательным",
-    ):
-        TopPlanes().top_altitude(-1)
 
+def test_top_velocity_empty_list(top_service):
+ result = top_service.top_velocity([], 5)
+ assert json.loads(result) == []
+
+
+def test_top_altitude_empty_list(top_service):
+ result = top_service.top_altitude([], 5)
+ assert json.loads(result) == []
 
