@@ -21,6 +21,8 @@ class APIAdapter(ABC):
         )
         self.aeroplanes = None  # результат запроса со списком самолетов
 
+        self.country_coordinates = None
+
     @abstractmethod
     def get_aeroplanes(self, country: str) -> None:
         pass
@@ -51,6 +53,8 @@ class APIGetAeroplanes(APIAdapter):
 
         response = get(url=self.openstreetmap_url, params=params_nominatim, headers=headers_nominatim)
 
+        self.country_coordinates = response.json()
+
         data = response.json()
 
         if not data:
@@ -71,7 +75,8 @@ class APIGetAeroplanes(APIAdapter):
         self.aeroplanes = response.json()
 
 
+
 if __name__ == "__main__":
     api = APIGetAeroplanes()
-    api.get_aeroplanes("Россия")
+    api.get_aeroplanes('Россия')
     print(api.aeroplanes)

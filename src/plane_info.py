@@ -11,7 +11,8 @@ class InformationAboutPlanes(APIGetAeroplanes):
 
     def __init__(self) -> None:
         self.information = []
-
+        self.country = None
+        self.aeroplanes_count = None
         super().__init__()
 
     def get_information(self, country: str) -> list:
@@ -46,13 +47,18 @@ class InformationAboutPlanes(APIGetAeroplanes):
                 continue
 
         self.information = planes
+        self.country = country
+        self.aeroplanes_count = len(planes)
         return planes
 
 
 if __name__ == "__main__":
     e = InformationAboutPlanes()
-    print(e.get_information("Russia"))
+    print(e.get_information("Китай"))
     print()
     print(e.information[1])
-
+    print(e.country)
+    #print(len(e.get_information("Russia")))
+    print()
+    print(e.aeroplanes_count)
 
